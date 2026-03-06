@@ -185,6 +185,20 @@ describe("CursorMcp", () => {
       });
     });
 
+    it("should return correct paths for local mode", () => {
+      const paths = CursorMcp.getSettablePaths({ global: false });
+
+      expect(paths.relativeDirPath).toBe(".cursor");
+      expect(paths.relativeFilePath).toBe("mcp.json");
+    });
+
+    it("should return correct paths for global mode", () => {
+      const paths = CursorMcp.getSettablePaths({ global: true });
+
+      expect(paths.relativeDirPath).toBe(".cursor");
+      expect(paths.relativeFilePath).toBe("mcp.json");
+    });
+
     it("should return consistent paths across multiple calls", () => {
       const paths1 = CursorMcp.getSettablePaths();
       const paths2 = CursorMcp.getSettablePaths();
@@ -736,6 +750,30 @@ describe("CursorMcp", () => {
 
       await expect(CursorMcp.fromFile({ validate: true })).rejects.toThrow(SyntaxError);
     });
+
+    it("should create CursorMcp from file in global mode", async () => {
+      const homeDir = testDir;
+      const mcpJsonPath = join(homeDir, ".cursor", "mcp.json");
+      const jsonData = {
+        mcpServers: {
+          "global-server": {
+            command: "node",
+            args: ["global-server.js"],
+          },
+        },
+      };
+
+      await ensureDir(join(homeDir, ".cursor"));
+      await writeFileContent(mcpJsonPath, JSON.stringify(jsonData, null, 2));
+
+      const cursorMcp = await CursorMcp.fromFile({ baseDir: homeDir, validate: true, global: true });
+
+      expect(cursorMcp).toBeInstanceOf(CursorMcp);
+      expect(cursorMcp.getJson()).toEqual(jsonData);
+      expect(cursorMcp.getRelativeDirPath()).toBe(".cursor");
+      expect(cursorMcp.getRelativeFilePath()).toBe("mcp.json");
+      expect(cursorMcp.getFilePath()).toBe(join(homeDir, ".cursor", "mcp.json"));
+    });
   });
 
   describe("fromRulesyncMcp", () => {
@@ -902,6 +940,37 @@ describe("CursorMcp", () => {
       expect(cursorMcp.getJson()).toEqual({
         mcpServers: {},
       });
+    });
+
+    it("should create CursorMcp in global mode with correct paths", () => {
+      const rulesyncMcpData = {
+        mcpServers: {
+          "global-server": {
+            command: "node",
+            args: ["server.js"],
+          },
+        },
+      };
+
+      const rulesyncMcp = new RulesyncMcp({
+        relativeDirPath: RULESYNC_RELATIVE_DIR_PATH,
+        relativeFilePath: ".mcp.json",
+        fileContent: JSON.stringify(rulesyncMcpData),
+      });
+
+      const homeDir = "/home/user";
+      const cursorMcp = CursorMcp.fromRulesyncMcp({
+        baseDir: homeDir,
+        rulesyncMcp,
+        validate: true,
+        global: true,
+      });
+
+      expect(cursorMcp).toBeInstanceOf(CursorMcp);
+      expect(cursorMcp.getRelativeDirPath()).toBe(".cursor");
+      expect(cursorMcp.getRelativeFilePath()).toBe("mcp.json");
+      expect(cursorMcp.getFilePath()).toBe(join(homeDir, ".cursor", "mcp.json"));
+      expect(cursorMcp.getJson()).toEqual({ mcpServers: rulesyncMcpData.mcpServers });
     });
   });
 
